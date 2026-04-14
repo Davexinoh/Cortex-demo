@@ -20,7 +20,6 @@ const STEPS = [
     title: 'Cortex Runs 24/7',
     body: '9 agents activate. Every 400ms the system ingests new data, reclassifies the market regime, debates the optimal move, and executes — or holds — based on what the Guardian approves.',
     detail: '9 agents · 400ms cycles · Guardian veto on every trade',
-    icon: '⚡',
   },
 ]
 
