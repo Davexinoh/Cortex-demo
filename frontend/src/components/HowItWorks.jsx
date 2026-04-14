@@ -4,7 +4,7 @@ const STEPS = [
   {
     num: '01',
     title: 'Connect Your Wallet',
-    body: 'Link via cryptographic signature only. Cortex never sees your private keys. Paper trading mode available — test strategies with zero risk before committing capital.',
+    body: 'Link via cryptographic signature only. Cortex never sees your private keys. Paper trading mode available. test strategies with zero risk before committing capital.',
     detail: 'Non-custodial · Signature only · No key exposure',
     icon: '🔐',
   },
