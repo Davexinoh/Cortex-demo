@@ -1,0 +1,103 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #0a0a0f;
+  --bg2: #0f0f17;
+  --bg3: #141420;
+  --card: #1a1a28;
+  --card2: #1f1f30;
+  --border: #2a2a40;
+  --border2: #353550;
+  --purple: #7c6cf0;
+  --purple2: #6c5ce7;
+  --purple-glow: rgba(124,108,240,0.2);
+  --purple-dim: rgba(124,108,240,0.1);
+  --white: #ffffff;
+  --off-white: #e0e0f0;
+  --muted: #888899;
+  --muted2: #555568;
+  --green: #00e676;
+  --red: #ff4757;
+  --amber: #ffa502;
+  --pixel: 'Press Start 2P', monospace;
+  --body: 'Press Start 2P', monospace;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--white);
+  font-family: var(--pixel);
+  font-size: 11px;
+  line-height: 1.8;
+  overflow-x: hidden;
+  -webkit-font-smoothing: none;
+  image-rendering: pixelated;
+}
+
+/* The ~ tilde wave background pattern */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20'%3E%3Ctext x='0' y='14' font-size='12' fill='rgba(255,255,255,0.04)' font-family='monospace'%3E~%3C/text%3E%3C/svg%3E");
+  background-size: 20px 20px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border2); }
+
+::selection { background: var(--purple-dim); color: var(--purple); }
+
+/* Pixel button base */
+.px-btn {
+  font-family: var(--pixel);
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  padding: 12px 24px;
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
+  transition: all 0.15s;
+}
+
+.px-btn-primary {
+  background: var(--purple);
+  color: var(--white);
+}
+.px-btn-primary:hover {
+  background: var(--purple2);
+  box-shadow: 0 0 20px var(--purple-glow);
+}
+
+.px-btn-outline {
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--border2);
+}
+.px-btn-outline:hover {
+  border-color: var(--purple);
+  color: var(--white);
+}
+
+/* Card */
+.px-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+}
+
+/* Section wrapper */
+.section-wrap {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 20px;
+  position: relative;
+  z-index: 1;
+}
