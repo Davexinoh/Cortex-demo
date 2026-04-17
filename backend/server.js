@@ -288,3 +288,8 @@ Return ONLY valid JSON, no markdown:
 
 // ─── Start ────────────────────────────────────────────────────────────────────
 app.listen(PORT, () => console.log(`CortexOS backend running on port ${PORT}`));
+// Self-ping every 14 minutes
+setInterval(() => {
+  fetch(`https://your-backend.onrender.com/health`)
+    .catch(() => {})
+}, 14 * 60 * 1000)
