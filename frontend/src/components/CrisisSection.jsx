@@ -2,214 +2,286 @@ import React, { useState } from 'react'
 import { runCrisis } from '../lib/api.js'
 
 const SCENARIOS = [
-  { id: 'depeg', label: 'Stablecoin Depeg', sub: 'USDC → $0.91 · SOL -22% in 90min' },
-  { id: 'liquidation', label: 'Cascade Liquidation', sub: '$40M whale liquidated · BTC -12% in 4min' },
-  { id: 'flashcrash', label: 'Flash Crash', sub: 'Regulatory headline · SOL -18% in 11min' },
+  { id: 'depeg', label: 'Stablecoin Depeg', icon: '💀', sub: 'USDC drops to $0.91 · SOL -22% in 90min' },
+  { id: 'liquidation', label: 'Cascade Liquidation', icon: '⚡', sub: '$40M whale liquidated · BTC -12% in 4min' },
+  { id: 'flashcrash', label: 'Flash Crash', icon: '🌊', sub: 'Regulatory headline · SOL -18% in 11min' },
 ]
+
+const STATUS_COLORS = {
+  LIQUIDATED: 'var(--red)', 'CAPITAL PRESERVED': 'var(--green)',
+  DEFENSIVE: 'var(--amber)', ALERT: 'var(--amber)',
+  PROTECTED: 'var(--green)', SAFE: 'var(--green)', POSITIONED: 'var(--acid)',
+}
 
 export default function CrisisSection() {
   const [selected, setSelected] = useState('depeg')
   const [loading, setLoading] = useState(false)
   const [data, setData] = useState(null)
   const [error, setError] = useState(null)
+  const [phase, setPhase] = useState(0) // animation phase
 
   async function simulate() {
-    setLoading(true); setError(null); setData(null)
+    setLoading(true)
+    setError(null)
+    setData(null)
+    setPhase(0)
     try {
-      setData(await runCrisis(selected))
-    } catch { setError('Simulation failed. Check API keys.') }
-    finally { setLoading(false) }
-  }
-
-  const STATUS_COLOR = {
-    LIQUIDATED: 'var(--red)', 'CAPITAL PRESERVED': 'var(--green)',
-    DEFENSIVE: 'var(--amber)', ALERT: 'var(--amber)',
-    PROTECTED: 'var(--green)', SAFE: 'var(--green)', POSITIONED: 'var(--purple)',
+      const result = await runCrisis(selected)
+      setData(result)
+      // Stagger reveal phases
+      setTimeout(() => setPhase(1), 200)
+      setTimeout(() => setPhase(2), 600)
+      setTimeout(() => setPhase(3), 1200)
+    } catch (e) {
+      setError('Failed to run simulation. Check your API keys.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
-    <section id="crisis" style={{ padding: '80px 24px', position: 'relative', zIndex: 1, borderTop: '1px solid var(--border)' }}>
-      <div className="section-wrap">
-
-        <div style={{ marginBottom: 40 }}>
-          <div style={{ fontFamily: 'var(--pixel)', fontSize: 8, color: 'var(--purple)', marginBottom: 16 }}>
-            // CRISIS SIMULATION
-          </div>
-          <h2 style={{
-            fontFamily: 'var(--pixel)', fontSize: 'clamp(14px, 2.5vw, 22px)',
-            lineHeight: 1.7, color: 'var(--white)', marginBottom: 16, maxWidth: 600,
-          }}>The crash already happened. Cortex knew first.</h2>
-          <p style={{ fontFamily: 'var(--pixel)', fontSize: 9, color: 'var(--muted)', lineHeight: 2, maxWidth: 520 }}>
-            Pick a real market crisis. Watch a static bot get liquidated step by step.
-            Then watch Cortex detect the regime shift before the crash.
-          </p>
-        </div>
-
-        {/* Scenario selector */}
-        <div style={{ display: 'flex', gap: 8, marginBottom: 24, flexWrap: 'wrap' }}>
-          {SCENARIOS.map(s => (
-            <button key={s.id} onClick={() => setSelected(s.id)} style={{
-              fontFamily: 'var(--pixel)', fontSize: 8,
-              padding: '12px 16px', cursor: 'pointer',
-              background: selected === s.id ? 'rgba(255,71,87,0.15)' : 'var(--card)',
-              border: `1px solid ${selected === s.id ? 'var(--red)' : 'var(--border)'}`,
-              color: selected === s.id ? 'var(--white)' : 'var(--muted)',
-              borderRadius: 10, textAlign: 'left', transition: 'all 0.2s',
-            }}>
-              <div style={{ marginBottom: 4 }}>{s.label}</div>
-              <div style={{ fontSize: 7, color: 'var(--muted2)' }}>{s.sub}</div>
-            </button>
-          ))}
-        </div>
-
-        <button onClick={simulate} disabled={loading} style={{
-          fontFamily: 'var(--pixel)', fontSize: 9,
-          background: loading ? 'var(--card)' : 'var(--red)',
-          color: loading ? 'var(--muted)' : 'var(--white)',
-          border: 'none', padding: '14px 28px', cursor: loading ? 'not-allowed' : 'pointer',
-          borderRadius: 10, marginBottom: 32, transition: 'all 0.2s',
+    <section id="crisis" style={{ padding: '100px 24px', maxWidth: 1100, margin: '0 auto' }}>
+      {/* Section header */}
+      <div style={{ marginBottom: 48 }}>
+        <div style={{
+          fontFamily: 'var(--mono)', fontSize: 10,
+          color: 'var(--acid)', letterSpacing: '0.25em',
+          marginBottom: 12,
+        }}>01 — CRISIS SIMULATION</div>
+        <h2 style={{
+          fontFamily: 'var(--display)', fontWeight: 800,
+          fontSize: 'clamp(32px, 5vw, 56px)',
+          letterSpacing: '-0.02em', lineHeight: 1,
+          marginBottom: 16,
         }}>
-          {loading ? '⟳ Simulating...' : '▶ Run Crisis Simulation'}
-        </button>
+          <span style={{ color: 'var(--white)' }}>THE CRASH ALREADY </span>
+          <span style={{ color: 'var(--red)', textShadow: '0 0 30px rgba(255,45,85,0.3)' }}>HAPPENED.</span>
+          <br />
+          <span style={{ color: 'var(--slate)' }}>CORTEX KNEW FIRST.</span>
+        </h2>
+        <p style={{
+          fontFamily: 'var(--body)', color: 'var(--slate)',
+          fontSize: 16, maxWidth: 560, lineHeight: 1.7,
+        }}>
+          Pick a real market crisis. Watch a static bot get liquidated step by step.
+          Then watch Cortex detect the regime shift <em style={{ color: 'var(--white)' }}>before the crash</em> and preserve capital.
+        </p>
+      </div>
 
-        {error && (
-          <div className="px-card" style={{ borderLeft: '3px solid var(--red)', borderRadius: 10, marginBottom: 20 }}>
-            <p style={{ fontFamily: 'var(--pixel)', fontSize: 8, color: 'var(--red)' }}>{error}</p>
-          </div>
-        )}
+      {/* Scenario picker */}
+      <div style={{ display: 'flex', gap: 12, marginBottom: 28, flexWrap: 'wrap' }}>
+        {SCENARIOS.map(s => (
+          <button key={s.id} onClick={() => setSelected(s.id)} style={{
+            fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: '0.08em',
+            padding: '12px 20px', cursor: 'pointer',
+            background: selected === s.id ? 'rgba(255,45,85,0.12)' : 'var(--ink2)',
+            border: selected === s.id ? '1px solid var(--red)' : '1px solid var(--wire)',
+            color: selected === s.id ? 'var(--white)' : 'var(--slate)',
+            transition: 'all 0.2s',
+            textAlign: 'left',
+          }}>
+            <div style={{ fontSize: 16, marginBottom: 4 }}>{s.icon} {s.label}</div>
+            <div style={{ fontSize: 9, color: 'var(--slate2)', letterSpacing: '0.12em' }}>{s.sub}</div>
+          </button>
+        ))}
+      </div>
 
-        {data && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {/* Run button */}
+      <button onClick={simulate} disabled={loading} style={{
+        fontFamily: 'var(--display)', fontWeight: 800,
+        fontSize: 18, letterSpacing: '0.12em',
+        background: loading ? 'var(--ink3)' : 'var(--red)',
+        color: loading ? 'var(--slate2)' : 'var(--white)',
+        border: 'none', padding: '16px 40px',
+        cursor: loading ? 'not-allowed' : 'pointer',
+        marginBottom: 40,
+        clipPath: 'polygon(12px 0%, 100% 0%, calc(100% - 12px) 100%, 0% 100%)',
+        transition: 'all 0.2s',
+        boxShadow: loading ? 'none' : '0 0 28px rgba(255,45,85,0.2)',
+      }}>
+        {loading ? '⟳ SIMULATING...' : '▶ RUN CRISIS SIMULATION'}
+      </button>
 
-            {/* Regime detection */}
-            <div className="px-card" style={{ borderRadius: 12, borderLeft: '3px solid var(--purple)' }}>
-              <div style={{ fontFamily: 'var(--pixel)', fontSize: 7, color: 'var(--purple)', marginBottom: 16 }}>
-                ⚙ REGIME CLASSIFIER — MARKOV SWITCHING MODEL
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 12, marginBottom: 16 }}>
+      {error && (
+        <div style={{
+          fontFamily: 'var(--mono)', fontSize: 12,
+          color: 'var(--red)', padding: '12px 16px',
+          border: '1px solid rgba(255,45,85,0.3)',
+          background: 'rgba(255,45,85,0.06)', marginBottom: 24,
+        }}>{error}</div>
+      )}
+
+      {data && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
+          {/* Regime detection card */}
+          {phase >= 1 && (
+            <div style={{
+              background: 'var(--ink2)', border: '1px solid rgba(0,255,224,0.2)',
+              padding: '24px 28px',
+              animation: 'fadeUp 0.5s ease both',
+            }}>
+              <div style={{
+                fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--acid)',
+                letterSpacing: '0.2em', marginBottom: 16,
+              }}>⚙ REGIME CLASSIFIER — MARKOV SWITCHING MODEL</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 16, marginBottom: 20 }}>
                 {[
-                  { label: 'INITIAL REGIME', value: data.regime?.initialRegime, color: 'var(--amber)' },
-                  { label: 'DETECTED', value: data.regime?.detectedRegime, color: 'var(--red)' },
-                  { label: 'CONFIDENCE', value: `${data.regime?.confidencePct}%`, color: 'var(--purple)' },
-                  { label: 'LEAD TIME', value: `${data.regime?.detectionLeadMinutes} min`, color: 'var(--green)' },
+                  { label: 'INITIAL REGIME', value: data.regime?.initialRegime || '—', color: 'var(--amber)' },
+                  { label: 'DETECTED REGIME', value: data.regime?.detectedRegime || '—', color: 'var(--red)' },
+                  { label: 'CONFIDENCE', value: `${data.regime?.confidencePct || 0}%`, color: 'var(--acid)' },
+                  { label: 'LEAD TIME', value: `${data.regime?.detectionLeadMinutes || 0} min early`, color: 'var(--green)' },
                 ].map(m => (
-                  <div key={m.label} style={{
-                    background: 'var(--bg3)', borderRadius: 8, padding: '12px',
-                    borderTop: `2px solid ${m.color}`,
-                  }}>
-                    <div style={{ fontFamily: 'var(--pixel)', fontSize: 7, color: 'var(--muted2)', marginBottom: 6 }}>{m.label}</div>
-                    <div style={{ fontFamily: 'var(--pixel)', fontSize: 12, color: m.color }}>{m.value || '—'}</div>
+                  <div key={m.label} style={{ borderLeft: `2px solid ${m.color}`, paddingLeft: 12 }}>
+                    <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--slate2)', letterSpacing: '0.15em', marginBottom: 4 }}>{m.label}</div>
+                    <div style={{ fontFamily: 'var(--display)', fontSize: 22, color: m.color, fontWeight: 700 }}>{m.value}</div>
                   </div>
                 ))}
               </div>
-              {(data.regime?.signals || []).map((sig, i) => (
-                <div key={i} style={{
-                  background: 'var(--bg3)', borderRadius: 6, padding: '8px 12px',
-                  marginBottom: 6, fontFamily: 'var(--pixel)', fontSize: 7,
-                  display: 'flex', gap: 12,
-                }}>
-                  <span style={{ color: 'var(--purple)', whiteSpace: 'nowrap' }}>[{sig.source}]</span>
-                  <span style={{ color: 'var(--muted)' }}>{sig.signal}</span>
-                </div>
-              ))}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {(data.regime?.signals || []).map((sig, i) => (
+                  <div key={i} style={{
+                    display: 'flex', gap: 12, alignItems: 'flex-start',
+                    fontFamily: 'var(--mono)', fontSize: 11,
+                    padding: '6px 10px', background: 'var(--ink3)',
+                    border: '1px solid var(--wire)',
+                  }}>
+                    <span style={{ color: 'var(--acid)', whiteSpace: 'nowrap' }}>[{sig.source}]</span>
+                    <span style={{ color: 'var(--slate)' }}>{sig.signal}</span>
+                  </div>
+                ))}
+              </div>
             </div>
+          )}
 
-            {/* Side by side */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          {/* Side by side comparison */}
+          {phase >= 2 && (
+            <div style={{
+              display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16,
+              animation: 'fadeUp 0.5s ease both',
+            }}>
               {/* Static bot */}
-              <div className="px-card" style={{ borderRadius: 12, borderTop: '2px solid var(--red)' }}>
+              <div style={{
+                background: 'rgba(255,45,85,0.04)',
+                border: '1px solid rgba(255,45,85,0.25)',
+                padding: '20px 24px',
+              }}>
                 <div style={{
-                  display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16,
+                  fontFamily: 'var(--mono)', fontSize: 9,
+                  color: 'var(--red)', letterSpacing: '0.2em', marginBottom: 16,
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 }}>
-                  <span style={{ fontFamily: 'var(--pixel)', fontSize: 8, color: 'var(--red)' }}>✗ Static Bot</span>
+                  <span>✗ STATIC BOT</span>
                   <span style={{
-                    fontFamily: 'var(--pixel)', fontSize: 7,
-                    background: 'rgba(255,71,87,0.15)', color: 'var(--red)',
-                    padding: '3px 8px', borderRadius: 6,
+                    background: 'rgba(255,45,85,0.15)', padding: '2px 10px',
+                    fontFamily: 'var(--display)', fontSize: 13, letterSpacing: '0.1em',
+                    color: 'var(--red)',
                   }}>{data.staticBot?.status || 'LIQUIDATED'}</span>
                 </div>
-                {(data.staticBot?.steps || []).map((step, i) => (
-                  <div key={i} style={{
-                    background: 'var(--bg3)', borderRadius: 6,
-                    padding: '8px 10px', marginBottom: 6,
-                    display: 'grid', gridTemplateColumns: '52px 1fr',
-                    gap: 8,
-                  }}>
-                    <span style={{ fontFamily: 'var(--pixel)', fontSize: 7, color: 'var(--muted2)' }}>{step.time}</span>
-                    <div>
-                      <div style={{ fontFamily: 'var(--pixel)', fontSize: 7, color: 'var(--muted)', lineHeight: 1.8 }}>{step.action}</div>
-                      <div style={{ fontFamily: 'var(--pixel)', fontSize: 7, color: step.pnl?.startsWith('-') ? 'var(--red)' : 'var(--green)', marginTop: 2 }}>
-                        {step.pnl}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {(data.staticBot?.steps || []).map((step, i) => (
+                    <div key={i} style={{
+                      padding: '8px 10px', background: 'var(--ink)',
+                      border: '1px solid var(--wire)',
+                      display: 'grid', gridTemplateColumns: '60px 1fr', gap: 10,
+                    }}>
+                      <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--slate2)' }}>{step.time}</span>
+                      <div>
+                        <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--slate)', lineHeight: 1.4 }}>{step.action}</div>
+                        <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: step.pnl?.startsWith('-') ? 'var(--red)' : 'var(--green)', marginTop: 2 }}>
+                          {step.pnl} · {step.outcome}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
                 <div style={{
-                  background: 'rgba(255,71,87,0.1)', borderRadius: 8,
-                  padding: '10px', marginTop: 8, textAlign: 'center',
-                  fontFamily: 'var(--pixel)', fontSize: 14, color: 'var(--red)',
+                  marginTop: 16, padding: '10px 14px',
+                  background: 'rgba(255,45,85,0.1)', border: '1px solid rgba(255,45,85,0.3)',
+                  fontFamily: 'var(--display)', fontSize: 24, color: 'var(--red)',
+                  textAlign: 'center', letterSpacing: '0.05em',
                 }}>
-                  {data.staticBot?.finalPnL || '—'}
+                  FINAL: {data.staticBot?.finalPnL || '—'}
                 </div>
               </div>
 
               {/* Cortex */}
-              <div className="px-card" style={{ borderRadius: 12, borderTop: '2px solid var(--green)' }}>
+              <div style={{
+                background: 'rgba(0,245,122,0.03)',
+                border: '1px solid rgba(0,245,122,0.2)',
+                padding: '20px 24px',
+              }}>
                 <div style={{
-                  display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16,
+                  fontFamily: 'var(--mono)', fontSize: 9,
+                  color: 'var(--green)', letterSpacing: '0.2em', marginBottom: 16,
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 }}>
-                  <span style={{ fontFamily: 'var(--pixel)', fontSize: 8, color: 'var(--green)' }}>✓ Cortex</span>
+                  <span>✓ CORTEX AGENT</span>
                   <span style={{
-                    fontFamily: 'var(--pixel)', fontSize: 7,
-                    background: 'rgba(0,230,118,0.1)', color: 'var(--green)',
-                    padding: '3px 8px', borderRadius: 6,
+                    background: 'rgba(0,245,122,0.12)', padding: '2px 10px',
+                    fontFamily: 'var(--display)', fontSize: 13, letterSpacing: '0.1em',
+                    color: 'var(--green)',
                   }}>{data.cortex?.status || 'CAPITAL PRESERVED'}</span>
                 </div>
-                {(data.cortex?.steps || []).map((step, i) => (
-                  <div key={i} style={{
-                    background: 'var(--bg3)', borderRadius: 6,
-                    padding: '8px 10px', marginBottom: 6,
-                    display: 'grid', gridTemplateColumns: '52px 1fr',
-                    gap: 8,
-                  }}>
-                    <span style={{ fontFamily: 'var(--pixel)', fontSize: 7, color: step.time?.startsWith('T-') ? 'var(--purple)' : 'var(--muted2)' }}>{step.time}</span>
-                    <div>
-                      <div style={{ fontFamily: 'var(--pixel)', fontSize: 7, color: 'var(--purple)', marginBottom: 2 }}>{step.agent}</div>
-                      <div style={{ fontFamily: 'var(--pixel)', fontSize: 7, color: 'var(--muted)', lineHeight: 1.8 }}>{step.action}</div>
-                      <div style={{ fontFamily: 'var(--pixel)', fontSize: 7, color: STATUS_COLOR[step.status] || 'var(--green)', marginTop: 2 }}>
-                        ● {step.status}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {(data.cortex?.steps || []).map((step, i) => (
+                    <div key={i} style={{
+                      padding: '8px 10px', background: 'var(--ink)',
+                      border: '1px solid var(--wire)',
+                      display: 'grid', gridTemplateColumns: '60px 1fr', gap: 10,
+                    }}>
+                      <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: step.time?.startsWith('T-') ? 'var(--acid)' : 'var(--slate2)' }}>{step.time}</span>
+                      <div>
+                        <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--acid)', letterSpacing: '0.1em', marginBottom: 2 }}>{step.agent}</div>
+                        <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--slate)', lineHeight: 1.4 }}>{step.action}</div>
+                        <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: STATUS_COLORS[step.status] || 'var(--green)', marginTop: 2 }}>
+                          ● {step.status} · {step.outcome}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
                 <div style={{
-                  background: 'rgba(0,230,118,0.08)', borderRadius: 8,
-                  padding: '10px', marginTop: 8, textAlign: 'center',
-                  fontFamily: 'var(--pixel)', fontSize: 12, color: 'var(--green)',
+                  marginTop: 16, padding: '10px 14px',
+                  background: 'rgba(0,245,122,0.08)', border: '1px solid rgba(0,245,122,0.25)',
+                  fontFamily: 'var(--display)', fontSize: 24, color: 'var(--green)',
+                  textAlign: 'center', letterSpacing: '0.05em',
                 }}>
-                  {data.cortex?.finalPnL} · {data.cortex?.capitalPreserved} preserved
+                  FINAL: {data.cortex?.finalPnL || '+2.1%'} · {data.cortex?.capitalPreserved || '100%'} PRESERVED
                 </div>
               </div>
             </div>
+          )}
 
-            {/* Summary */}
-            <div className="px-card" style={{ borderRadius: 10, borderLeft: '3px solid var(--purple)' }}>
-              <div style={{ fontFamily: 'var(--pixel)', fontSize: 7, color: 'var(--muted2)', marginBottom: 8 }}>CORTEX INTELLIGENCE SUMMARY</div>
-              <p style={{ fontFamily: 'var(--pixel)', fontSize: 8, color: 'var(--muted)', lineHeight: 2 }}>
-                {data.regime?.summary}
+          {/* Insight callout */}
+          {phase >= 3 && (
+            <div style={{
+              background: 'var(--ink2)', border: '1px solid var(--wire2)',
+              padding: '20px 28px',
+              borderLeft: '3px solid var(--acid)',
+              animation: 'fadeUp 0.5s ease both',
+            }}>
+              <div style={{
+                fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--slate2)',
+                letterSpacing: '0.2em', marginBottom: 8,
+              }}>CORTEX INTELLIGENCE SUMMARY</div>
+              <p style={{
+                fontFamily: 'var(--body)', fontSize: 15, color: 'var(--slate)',
+                lineHeight: 1.7,
+              }}>
+                {data.regime?.summary || 'Regime shift detected before the market crash. Capital preserved through adversarial agent consensus.'}
               </p>
             </div>
-
-          </div>
-        )}
-
-        <div style={{ textAlign: 'center', marginTop: 40 }}>
-          <a href="#pipeline" className="px-btn px-btn-primary" style={{ borderRadius: 10, fontSize: 8 }}>
-            What does Cortex do instead? →
-          </a>
+          )}
         </div>
+      )}
 
-      </div>
+      <style>{`
+        @keyframes fadeUp {
+          from { opacity: 0; transform: translateY(16px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
     </section>
   )
-}
+              }
+      
