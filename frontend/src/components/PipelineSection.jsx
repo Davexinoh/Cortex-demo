@@ -1,321 +1,344 @@
 import React, { useState } from 'react'
 import { runPipeline } from '../lib/api.js'
 
-const PAIRS = ['SOL/USDC','JUP/USDC','BONK/SOL','WIF/USDC','RAY/USDC','PYTH/USDC']
-const STRATEGIES = ['Spot Long','Spot Short','Perp Long 3x','Perp Short 2x','DCA Entry','Yield Farm']
-const CONDITIONS = ['Trending Bull','Low Volatility','High Volatility','Pre-News Event','Post-Crash','Sideways Chop']
+const PAIRS = ['SOL/USDC','JUP/USDC','BONK/SOL','WIF/USDC','RAY/USDC','PYTH/USDC','JTO/USDC']
+const STRATEGIES = ['Spot Long','Spot Short','Perp Long 3x','Perp Short 2x','DCA Entry','Yield Farm','Liquidation Capture']
+const CONDITIONS = ['Trending Bull','Low Volatility','High Volatility','Pre-News Event','Post-Crash Recovery','Sideways Chop']
 
-function StepBox({ num, title, input, transform, output, accent = 'var(--purple)', children }) {
-  return (
-    <div className="px-card" style={{ borderRadius: 12, borderLeft: `3px solid ${accent}`, marginBottom: 8 }}>
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: 12,
-        marginBottom: 14, paddingBottom: 12, borderBottom: '1px solid var(--border)',
-      }}>
-        <span style={{
-          fontFamily: 'var(--pixel)', fontSize: 10,
-          background: accent, color: 'var(--bg)',
-          padding: '4px 10px', borderRadius: 6,
-        }}>STEP {num}</span>
-        <span style={{ fontFamily: 'var(--pixel)', fontSize: 9, color: 'var(--white)' }}>{title}</span>
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: children ? 14 : 0 }}>
-        {[
-          { label: 'INPUT', value: input, color: 'var(--muted2)' },
-          { label: 'TRANSFORMATION', value: transform, color: 'var(--muted2)' },
-          { label: 'OUTPUT', value: output, color: accent },
-        ].map(col => (
-          <div key={col.label} style={{ background: 'var(--bg3)', borderRadius: 8, padding: '10px 12px' }}>
-            <div style={{ fontFamily: 'var(--pixel)', fontSize: 6, color: col.color, marginBottom: 6, letterSpacing: '0.1em' }}>{col.label}</div>
-            <div style={{ fontFamily: 'var(--pixel)', fontSize: 7, color: 'var(--muted)', lineHeight: 2, whiteSpace: 'pre-line' }}>{col.value}</div>
-          </div>
-        ))}
-      </div>
-
-      {children && <div>{children}</div>}
-    </div>
-  )
+const AGENT_META = {
+  analyst: { color: 'var(--acid)', bg: 'rgba(0,255,224,0.06)', border: 'rgba(0,255,224,0.2)' },
+  researcher: { color: 'var(--amber)', bg: 'rgba(255,184,0,0.06)', border: 'rgba(255,184,0,0.2)' },
+  decision: { color: 'var(--green)', bg: 'rgba(0,245,122,0.06)', border: 'rgba(0,245,122,0.2)' },
 }
 
-function AgentMini({ name, icon, sentiment, signal, score, scoreLabel }) {
-  const sc = { bullish: 'var(--green)', bearish: 'var(--red)', neutral: 'var(--amber)' }
-  const c = sc[sentiment] || sc.neutral
-  return (
-    <div style={{
-      background: 'var(--bg3)', borderRadius: 8, padding: '12px',
-      borderTop: `2px solid ${c}`,
-    }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-        <span style={{ fontFamily: 'var(--pixel)', fontSize: 8, color: 'var(--white)' }}>{icon} {name}</span>
-        <span style={{
-          fontFamily: 'var(--pixel)', fontSize: 7,
-          color: c, background: `${c}18`, padding: '2px 6px', borderRadius: 4,
-        }}>{sentiment}</span>
-      </div>
-      <p style={{ fontFamily: 'var(--pixel)', fontSize: 7, color: 'var(--muted)', lineHeight: 1.9, marginBottom: 8 }}>{signal || '—'}</p>
-      {score !== undefined && (
-        <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'var(--pixel)', fontSize: 6, color: 'var(--muted2)', marginBottom: 4 }}>
-            <span>{scoreLabel}</span><span style={{ color: c }}>{score}</span>
-          </div>
-          <div style={{ height: 3, background: 'var(--border)', borderRadius: 2, overflow: 'hidden' }}>
-            <div style={{ height: '100%', width: `${Math.min(100, score || 0)}%`, background: c, transition: 'width 1s ease' }} />
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
+const SENTIMENT_COLOR = { bullish: 'var(--green)', bearish: 'var(--red)', neutral: 'var(--amber)' }
 
 export default function PipelineSection() {
   const [form, setForm] = useState({ pair: 'SOL/USDC', strategy: 'Spot Long', size: 5000, marketCondition: 'Trending Bull' })
   const [loading, setLoading] = useState(false)
   const [data, setData] = useState(null)
   const [error, setError] = useState(null)
+  const [activeStep, setActiveStep] = useState(-1)
 
   async function run() {
-    setLoading(true); setError(null); setData(null)
-    try { setData(await runPipeline(form)) }
-    catch { setError('Pipeline failed. Check API keys.') }
-    finally { setLoading(false) }
+    setLoading(true); setError(null); setData(null); setActiveStep(-1)
+    try {
+      const result = await runPipeline(form)
+      setData(result)
+      // Stagger pipeline steps
+      for (let i = 0; i <= 4; i++) {
+        await new Promise(r => setTimeout(r, i * 300))
+        setActiveStep(i)
+      }
+    } catch (e) {
+      setError('Pipeline error. Check API keys.')
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const pm = data?.decisions?.portfolioManager
-  const rm = data?.decisions?.riskManager
-  const tr = data?.decisions?.trader
-  const isApproved = pm?.verdict === 'APPROVE'
-  const bullish = (data?.analysts || []).filter(a => a.data?.sentiment === 'bullish').length
-  const bearish = (data?.analysts || []).filter(a => a.data?.sentiment === 'bearish').length
-  const consensusScore = data ? ((bullish - bearish) / 4).toFixed(2) : null
-  const consensusPassed = consensusScore !== null && Math.abs(parseFloat(consensusScore)) >= 0.5
+  const verdict = data?.decisions?.portfolioManager?.verdict
+  const isApproved = verdict === 'APPROVE'
+
+  const STEPS = ['DATA INGEST', 'REGIME CLASS.', 'ANALYSTS ×4', 'RESEARCHERS ×2', 'DECISION LAYER', 'GUARDIAN']
 
   return (
-    <section id="pipeline" style={{ padding: '80px 24px', position: 'relative', zIndex: 1, borderTop: '1px solid var(--border)' }}>
-      <div className="section-wrap">
-
-        <div style={{ marginBottom: 40 }}>
-          <div style={{ fontFamily: 'var(--pixel)', fontSize: 8, color: 'var(--purple)', marginBottom: 16 }}>// AGENT PIPELINE</div>
-          <h2 style={{
-            fontFamily: 'var(--pixel)', fontSize: 'clamp(14px, 2.5vw, 22px)',
-            lineHeight: 1.7, color: 'var(--white)', marginBottom: 16, maxWidth: 600,
-          }}>What happens to a trade before it executes.</h2>
-          <p style={{ fontFamily: 'var(--pixel)', fontSize: 9, color: 'var(--muted)', lineHeight: 2, maxWidth: 520 }}>
-            Every step shows exactly what the system receives,
-            what it does with it, and what it outputs.
-          </p>
+    <section id="pipeline" style={{ padding: '100px 24px', maxWidth: 1100, margin: '0 auto', borderTop: '1px solid var(--wire)' }}>
+      {/* Header */}
+      <div style={{ marginBottom: 48 }}>
+        <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--acid)', letterSpacing: '0.25em', marginBottom: 12 }}>
+          02 — AGENT PIPELINE
         </div>
-
-        {/* Form */}
-        <div className="px-card" style={{
-          borderRadius: 12, marginBottom: 24,
-          display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
-          gap: 12, alignItems: 'end',
+        <h2 style={{
+          fontFamily: 'var(--display)', fontWeight: 800,
+          fontSize: 'clamp(32px, 5vw, 56px)',
+          letterSpacing: '-0.02em', lineHeight: 1, marginBottom: 16,
         }}>
-          {[
-            { key: 'pair', label: 'TOKEN PAIR', opts: PAIRS },
-            { key: 'strategy', label: 'STRATEGY', opts: STRATEGIES },
-            { key: 'marketCondition', label: 'CONDITION', opts: CONDITIONS },
-          ].map(f => (
-            <div key={f.key}>
-              <label style={{ fontFamily: 'var(--pixel)', fontSize: 7, color: 'var(--muted2)', display: 'block', marginBottom: 6 }}>{f.label}</label>
-              <select value={form[f.key]} onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))}
-                style={{
-                  width: '100%', background: 'var(--bg3)', border: '1px solid var(--border)',
-                  color: 'var(--white)', fontFamily: 'var(--pixel)', fontSize: 8,
-                  padding: '8px 10px', outline: 'none', cursor: 'pointer', borderRadius: 6,
-                }}>
-                {f.opts.map(o => <option key={o} value={o}>{o}</option>)}
-              </select>
-            </div>
-          ))}
-          <div>
-            <label style={{ fontFamily: 'var(--pixel)', fontSize: 7, color: 'var(--muted2)', display: 'block', marginBottom: 6 }}>SIZE (USDC)</label>
-            <input type="number" value={form.size} onChange={e => setForm(p => ({ ...p, size: e.target.value }))}
-              style={{
-                width: '100%', background: 'var(--bg3)', border: '1px solid var(--border)',
-                color: 'var(--white)', fontFamily: 'var(--pixel)', fontSize: 8,
-                padding: '8px 10px', outline: 'none', borderRadius: 6,
-              }} />
-          </div>
-          <button onClick={run} disabled={loading}
-            className="px-btn px-btn-primary"
-            style={{ borderRadius: 8, fontSize: 8, width: '100%', opacity: loading ? 0.6 : 1 }}>
-            {loading ? '⟳ Running' : '▶ Run Pipeline'}
-          </button>
-        </div>
-
-        {error && (
-          <div className="px-card" style={{ borderLeft: '3px solid var(--red)', borderRadius: 10, marginBottom: 16 }}>
-            <p style={{ fontFamily: 'var(--pixel)', fontSize: 8, color: 'var(--red)' }}>{error}</p>
-          </div>
-        )}
-
-        {/* Pipeline steps — always visible, output fills after run */}
-        <StepBox num="1" title="DATA INGESTION" accent="var(--purple)"
-          input={`OHLCV 200 candles\nFunding rates\nOrder book depth\nHelius on-chain stream`}
-          transform={`Normalize timestamps\nAlign frequencies\nCompute derived metrics`}
-          output={data ? `Pair: ${form.pair}\nSize: $${Number(form.size).toLocaleString()}\nCondition: ${form.marketCondition}\nSnapshot: ready` : `Market snapshot\n{price, vol, spread,\nfunding, depth}\n→ dispatched`}
-        />
-
-        <StepBox num="2" title="REGIME CLASSIFICATION" accent="var(--amber)"
-          input={`Market snapshot\n200 candles OHLCV\nFunding rate delta\nCross-asset correlation`}
-          transform={`Markov Switching Model\nHawkes process clustering\nEVT tail risk score`}
-          output={data ? `Regime: ${data.researchers?.[1]?.data?.regime || form.marketCondition.toUpperCase()}\nConfidence: ${data.researchers?.[1]?.data?.regimeProbability || '—'}%\nTail risk: ${data.researchers?.[1]?.data?.tailRisk || '—'}` : `REGIME + confidence\n→ dispatched\nto analysts`}
-        />
-
-        <StepBox num="3" title="ANALYST REPORTS (×4 INDEPENDENT)" accent="var(--purple)"
-          input={`Regime classification\nMarket snapshot\nAgents work independently\nno cross-communication`}
-          transform={`4 agents score in parallel\nEach outputs sentiment\n+ confidence on -1 to +1`}
-          output={data ? (data.analysts || []).map(a => {
-            const s = a.data?.sentiment
-            const c = a.data?.confidence || a.data?.score || 50
-            const score = s === 'bullish' ? `+${(c/100).toFixed(2)}` : s === 'bearish' ? `-${(c/100).toFixed(2)}` : '0.00'
-            return `${a.name?.split(' ')[0]}: ${score}`
-          }).join('\n') : `SmartMoney: ±0.xx\nChart: ±0.xx\nSentiment: ±0.xx\nSafety: ±0.xx`}
-        >
-          {data && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 8 }}>
-              {(data.analysts || []).map((a, i) => (
-                <AgentMini key={i} icon={a.icon} name={a.name}
-                  sentiment={a.data?.sentiment} signal={a.data?.signal || a.data?.finding}
-                  score={a.data?.score ?? a.data?.confidence}
-                  scoreLabel={a.data?.score !== undefined ? 'SAFETY SCORE' : 'CONFIDENCE'} />
-              ))}
-            </div>
-          )}
-        </StepBox>
-
-        <StepBox num="4" title="ADVERSARIAL DEBATE + CONSENSUS CHECK" accent="var(--purple)"
-          input={`4 analyst scores\nRegime classification\nConsensus threshold: ≥0.5`}
-          transform={`Aggregate weighted scores\n|consensus| < 0.5 → no trade\nResearchers stress-test view`}
-          output={data && consensusScore !== null
-            ? `Score: ${consensusScore}\nThreshold: ≥0.50\n${consensusPassed ? '✓ PASSED' : '✗ FAILED'}\nBullish: ${bullish}/4  Bearish: ${bearish}/4`
-            : `Consensus score: —\nPASSED or FAILED\n→ awaiting run`}
-        >
-          {data && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 8 }}>
-              {(data.researchers || []).map((r, i) => (
-                <AgentMini key={i} icon={r.icon} name={r.name}
-                  sentiment={r.data?.sentiment} signal={r.data?.finding}
-                  score={r.data?.depthScore ?? r.data?.regimeProbability}
-                  scoreLabel={r.data?.depthScore !== undefined ? 'DEPTH SCORE' : 'REGIME PROB'} />
-              ))}
-            </div>
-          )}
-        </StepBox>
-
-        <StepBox num="5" title="TRADE PROPOSAL" accent="var(--green)"
-          input={`Consensus result\nRegime + tail risk\nLiquidity depth\nPortfolio state`}
-          transform={`Trader agent sizes entry\nSets stop + take-profit\nBased on regime-adjusted vol`}
-          output={data && tr
-            ? `${form.strategy.toUpperCase()}\nSize: $${Number(form.size).toLocaleString()}\nStop: ${rm?.stopLossPct ?? -15}%\nTP: +${rm?.takeProfitPct ?? 45}%\nR:R = ${rm?.riskReward ?? '1:3'}`
-            : `{side, size,\nentry, stop, tp}\n→ awaiting run`}
-        >
-          {data && tr && (
-            <div style={{ background: 'var(--bg3)', borderRadius: 8, padding: '10px 14px' }}>
-              <div style={{ fontFamily: 'var(--pixel)', fontSize: 6, color: 'var(--muted2)', marginBottom: 6 }}>TRADER REASONING</div>
-              <p style={{ fontFamily: 'var(--pixel)', fontSize: 7, color: 'var(--muted)', lineHeight: 2 }}>{tr.proposal || '—'}</p>
-              {rm && <p style={{ fontFamily: 'var(--pixel)', fontSize: 7, color: 'var(--muted)', lineHeight: 2, marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--border)' }}>
-                <span style={{ color: 'var(--muted2)' }}>RISK MGR: </span>{rm.assessment}
-              </p>}
-            </div>
-          )}
-        </StepBox>
-
-        <StepBox num="6" title="RISK ASSESSMENT — 30 PARAMETERS" accent="var(--amber)"
-          input={`Trade proposal\nPortfolio state\nRegime + tail risk\nLiquidity depth`}
-          transform={`Score 30 risk params\nCheck position limits\nDrawdown ceiling check\nLiquidation distance`}
-          output={data && pm
-            ? `Risk: ${pm.riskScore ?? 0}/100\nLiquidity: ${pm.liquidityScore ?? 0}/100\nVolatility: ${pm.volatilityScore ?? 0}/100\n${(pm.riskScore ?? 0) < 45 ? '✓ Within limits' : '⚠ Elevated'}`
-            : `Risk score: 0-100\nLiquidity: 0-100\nVolatility: 0-100\n→ awaiting run`}
-        >
-          {data && pm && (
-            <div style={{ maxWidth: 300 }}>
-              {[
-                { label: 'COMPOSITE RISK', val: pm.riskScore ?? 0, color: (pm.riskScore ?? 0) < 45 ? 'var(--green)' : (pm.riskScore ?? 0) < 70 ? 'var(--amber)' : 'var(--red)' },
-                { label: 'LIQUIDITY', val: pm.liquidityScore ?? 0, color: 'var(--purple)' },
-                { label: 'VOLATILITY', val: pm.volatilityScore ?? 0, color: (pm.volatilityScore ?? 0) < 50 ? 'var(--green)' : 'var(--amber)' },
-              ].map(b => (
-                <div key={b.label} style={{ marginBottom: 8 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'var(--pixel)', fontSize: 6, color: 'var(--muted2)', marginBottom: 3 }}>
-                    <span>{b.label}</span><span style={{ color: b.color }}>{b.val}</span>
-                  </div>
-                  <div style={{ height: 4, background: 'var(--border)', borderRadius: 2, overflow: 'hidden' }}>
-                    <div style={{ height: '100%', width: `${b.val}%`, background: b.color, transition: 'width 1s ease', borderRadius: 2 }} />
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </StepBox>
-
-        <StepBox num="7" title="PORTFOLIO MANAGER APPROVAL" accent="var(--purple)"
-          input={`Risk scores\nTrade proposal\nPortfolio allocation\nRegime classification`}
-          transform={`Reviews full picture\nChecks diversification\nAllocation limits\nRegime fit`}
-          output={data && pm ? `Decision: ${pm.verdict}\n${pm.decision || '—'}` : `APPROVE or REJECT\n+ reasoning\n→ awaiting run`}
-        />
-
-        <StepBox num="8" title="GUARDIAN VETO — FINAL EXECUTION"
-          accent={data ? (isApproved ? 'var(--green)' : 'var(--red)') : 'var(--border2)'}
-          input={`PM decision\nAll risk scores\nIsing cascade detector\nSystem-wide risk state`}
-          transform={`9-component evaluation\nIsing cascade check\nNo override path exists`}
-          output={data && pm
-            ? `VERDICT: ${pm.verdict}\n${pm.verdictReason || '—'}\nProtocol: ${pm.protocol || '—'}\nAPY: ~${pm.expectedAPY || '—'}%`
-            : `APPROVED or VETOED\n+ reason + protocol\n→ awaiting run`}
-        >
-          {data && pm && (
-            <div style={{
-              background: isApproved ? 'rgba(0,230,118,0.06)' : 'rgba(255,71,87,0.06)',
-              border: `1px solid ${isApproved ? 'rgba(0,230,118,0.3)' : 'rgba(255,71,87,0.3)'}`,
-              borderRadius: 10, padding: '16px 20px',
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap', marginBottom: isApproved ? 16 : 0 }}>
-                <span style={{
-                  fontFamily: 'var(--pixel)', fontSize: 18,
-                  color: isApproved ? 'var(--green)' : 'var(--red)',
-                }}>{isApproved ? '✓ APPROVED' : '✗ VETOED'}</span>
-                <span style={{ fontFamily: 'var(--pixel)', fontSize: 7, color: 'var(--muted)', lineHeight: 1.9 }}>
-                  {pm.verdictReason}
-                </span>
-              </div>
-              {isApproved && (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 10 }}>
-                  {[
-                    { label: 'PROTOCOL', value: pm.protocol, color: 'var(--purple)' },
-                    { label: 'STOP LOSS', value: `${rm?.stopLossPct ?? -15}%`, color: 'var(--red)' },
-                    { label: 'TAKE PROFIT', value: `+${rm?.takeProfitPct ?? 45}%`, color: 'var(--green)' },
-                    { label: 'EXP. APY', value: `~${pm.expectedAPY}%`, color: 'var(--purple)' },
-                    { label: 'MEV', value: 'Jito Bundle', color: 'var(--purple)' },
-                  ].map(e => (
-                    <div key={e.label} style={{ background: 'var(--bg3)', borderRadius: 6, padding: '8px 10px' }}>
-                      <div style={{ fontFamily: 'var(--pixel)', fontSize: 6, color: 'var(--muted2)', marginBottom: 4 }}>{e.label}</div>
-                      <div style={{ fontFamily: 'var(--pixel)', fontSize: 9, color: e.color }}>{e.value}</div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-        </StepBox>
-
-        {/* Limitation */}
-        <div className="px-card" style={{ borderRadius: 10, borderLeft: '3px solid var(--amber)', marginTop: 8 }}>
-          <div style={{ fontFamily: 'var(--pixel)', fontSize: 7, color: 'var(--amber)', marginBottom: 8 }}>// WHERE THIS BREAKS</div>
-          <p style={{ fontFamily: 'var(--pixel)', fontSize: 7, color: 'var(--muted)', lineHeight: 2 }}>
-            Consensus failure at Step 4 terminates the pipeline cleanly — no trade generated.
-            Under high Solana RPC congestion, 400ms cycle extends to 800ms+.
-            New token listings skip regime classification until 200 candles exist.
-            Guardian at Step 8 has no override path — not even from Portfolio Manager.
-          </p>
-        </div>
-
-        <div style={{ textAlign: 'center', marginTop: 32 }}>
-          <a href="#how" className="px-btn px-btn-primary" style={{ borderRadius: 10, fontSize: 8 }}>
-            How do I get started? →
-          </a>
-        </div>
+          <span style={{ color: 'var(--white)' }}>9 AGENTS. ONE TRADE. </span>
+          <span style={{ color: 'var(--acid)' }}>ZERO BLIND SPOTS.</span>
+        </h2>
+        <p style={{ fontFamily: 'var(--body)', color: 'var(--slate)', fontSize: 16, maxWidth: 560, lineHeight: 1.7 }}>
+          Configure a trade proposal. Watch the full multi-agent system debate it —
+          analysts, researchers, and decision agents powered by live AI.
+        </p>
       </div>
+
+      {/* Form */}
+      <div style={{
+        background: 'var(--ink2)', border: '1px solid var(--wire)',
+        padding: '24px 28px', marginBottom: 28,
+        display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 16,
+        alignItems: 'end',
+      }}>
+        {[
+          { key: 'pair', label: 'TOKEN PAIR', opts: PAIRS },
+          { key: 'strategy', label: 'STRATEGY', opts: STRATEGIES },
+          { key: 'marketCondition', label: 'MARKET CONDITION', opts: CONDITIONS },
+        ].map(f => (
+          <div key={f.key}>
+            <label style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--slate2)', letterSpacing: '0.15em', display: 'block', marginBottom: 6 }}>{f.label}</label>
+            <select
+              value={form[f.key]}
+              onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))}
+              style={{
+                width: '100%', background: 'var(--ink)', border: '1px solid var(--wire)',
+                color: 'var(--white)', fontFamily: 'var(--mono)', fontSize: 13,
+                padding: '9px 12px', outline: 'none', cursor: 'pointer',
+              }}
+            >
+              {f.opts.map(o => <option key={o} value={o}>{o}</option>)}
+            </select>
+          </div>
+        ))}
+        <div>
+          <label style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--slate2)', letterSpacing: '0.15em', display: 'block', marginBottom: 6 }}>SIZE (USDC)</label>
+          <input
+            type="number" value={form.size}
+            onChange={e => setForm(p => ({ ...p, size: e.target.value }))}
+            style={{
+              width: '100%', background: 'var(--ink)', border: '1px solid var(--wire)',
+              color: 'var(--white)', fontFamily: 'var(--mono)', fontSize: 13,
+              padding: '9px 12px', outline: 'none',
+            }}
+          />
+        </div>
+        <button onClick={run} disabled={loading} style={{
+          fontFamily: 'var(--display)', fontWeight: 800, fontSize: 16,
+          letterSpacing: '0.12em',
+          background: loading ? 'var(--wire)' : 'var(--acid)',
+          color: loading ? 'var(--slate2)' : 'var(--ink)',
+          border: 'none', padding: '10px 24px', cursor: loading ? 'not-allowed' : 'pointer',
+          clipPath: 'polygon(10px 0%, 100% 0%, calc(100% - 10px) 100%, 0% 100%)',
+          transition: 'all 0.2s',
+          whiteSpace: 'nowrap',
+        }}>
+          {loading ? '⟳ RUNNING' : '▶ ANALYZE'}
+        </button>
+      </div>
+
+      {/* Pipeline progress bar */}
+      <div style={{ display: 'flex', gap: 0, marginBottom: 32, overflowX: 'auto', paddingBottom: 4 }}>
+        {STEPS.map((step, i) => {
+          const done = activeStep >= i
+          const active = activeStep === i && loading
+          return (
+            <div key={step} style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              padding: '8px 14px',
+              background: done ? 'rgba(0,255,224,0.08)' : 'var(--ink2)',
+              border: `1px solid ${done ? 'rgba(0,255,224,0.35)' : 'var(--wire)'}`,
+              borderRight: 'none',
+              fontFamily: 'var(--mono)', fontSize: 10,
+              color: done ? 'var(--acid)' : 'var(--slate2)',
+              letterSpacing: '0.1em', whiteSpace: 'nowrap',
+              transition: 'all 0.4s',
+            }}>
+              <span style={{
+                width: 18, height: 18, borderRadius: '50%',
+                border: `1px solid ${done ? 'var(--acid)' : 'var(--slate3)'}`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 9, color: done ? 'var(--acid)' : 'var(--slate3)',
+                flexShrink: 0,
+              }}>{done ? '✓' : i + 1}</span>
+              {step}
+            </div>
+          )
+        })}
+        <div style={{ borderLeft: '1px solid var(--wire)', flex: 1, background: 'var(--ink2)', minWidth: 20 }} />
+      </div>
+
+      {error && (
+        <div style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--red)', padding: '12px 16px', border: '1px solid rgba(255,45,85,0.3)', background: 'rgba(255,45,85,0.06)', marginBottom: 24 }}>{error}</div>
+      )}
+
+      {data && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          {/* Analysts */}
+          <AgentGroup title="ANALYST AGENTS" badge="×4" meta={AGENT_META.analyst}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+              {(data.analysts || []).map((a, i) => (
+                <AgentCard key={i} agent={a} meta={AGENT_META.analyst} />
+              ))}
+            </div>
+          </AgentGroup>
+
+          {/* Researchers */}
+          <AgentGroup title="RESEARCHER AGENTS" badge="×2" meta={AGENT_META.researcher}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12 }}>
+              {(data.researchers || []).map((r, i) => (
+                <AgentCard key={i} agent={r} meta={AGENT_META.researcher} />
+              ))}
+            </div>
+          </AgentGroup>
+
+          {/* Decision agents */}
+          <AgentGroup title="DECISION AGENTS" badge="×3" meta={AGENT_META.decision}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
+              {[
+                { name: 'Trader Agent', icon: '⚡', data: { ...data.decisions?.trader, signal: data.decisions?.trader?.proposal } },
+                { name: 'Risk Manager', icon: '⚖️', data: { ...data.decisions?.riskManager, signal: data.decisions?.riskManager?.assessment } },
+                { name: 'Portfolio Manager', icon: '🗂️', data: { ...data.decisions?.portfolioManager, signal: data.decisions?.portfolioManager?.decision } },
+              ].map((a, i) => <AgentCard key={i} agent={a} meta={AGENT_META.decision} />)}
+            </div>
+          </AgentGroup>
+
+          {/* Guardian verdict */}
+          <div style={{
+            background: isApproved ? 'rgba(0,245,122,0.04)' : 'rgba(255,45,85,0.04)',
+            border: `1px solid ${isApproved ? 'rgba(0,245,122,0.3)' : 'rgba(255,45,85,0.3)'}`,
+            padding: '24px 28px',
+          }}>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--slate2)', letterSpacing: '0.2em', marginBottom: 16 }}>
+              🔐 GUARDIAN VETO LAYER — FINAL DECISION
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', gap: 24, alignItems: 'center' }}>
+              <div>
+                <RiskGauge value={data.decisions?.portfolioManager?.riskScore || 40} label="RISK" />
+              </div>
+              <div>
+                <div style={{ fontFamily: 'var(--body)', fontSize: 15, color: 'var(--slate)', lineHeight: 1.7, marginBottom: 12 }}>
+                  {data.decisions?.portfolioManager?.verdictReason || '—'}
+                </div>
+                <ScoreBar label="LIQUIDITY" value={data.decisions?.portfolioManager?.liquidityScore || 75} color="var(--acid)" />
+                <ScoreBar label="VOLATILITY" value={data.decisions?.portfolioManager?.volatilityScore || 45} color="var(--amber)" />
+              </div>
+              <div style={{
+                fontFamily: 'var(--display)', fontSize: 28, fontWeight: 800,
+                padding: '16px 28px', letterSpacing: '0.1em',
+                background: isApproved ? 'rgba(0,245,122,0.12)' : 'rgba(255,45,85,0.12)',
+                border: `1px solid ${isApproved ? 'rgba(0,245,122,0.4)' : 'rgba(255,45,85,0.4)'}`,
+                color: isApproved ? 'var(--green)' : 'var(--red)',
+                textAlign: 'center', whiteSpace: 'nowrap',
+              }}>
+                {isApproved ? '✓ APPROVED' : '✗ VETOED'}
+              </div>
+            </div>
+
+            {isApproved && (
+              <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--wire)', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
+                {[
+                  { label: 'PROTOCOL', value: data.decisions?.portfolioManager?.protocol || '—' },
+                  { label: 'STOP LOSS', value: `${data.decisions?.riskManager?.stopLossPct || -15}%`, col: 'var(--red)' },
+                  { label: 'TAKE PROFIT', value: `+${data.decisions?.riskManager?.takeProfitPct || 45}%`, col: 'var(--green)' },
+                  { label: 'EXPECTED APY', value: `~${data.decisions?.portfolioManager?.expectedAPY || 27}%`, col: 'var(--acid)' },
+                  { label: 'R:R RATIO', value: data.decisions?.riskManager?.riskReward || '1:3' },
+                  { label: 'MEV PROTECTION', value: 'Jito Bundle', col: 'var(--acid)' },
+                ].map(e => (
+                  <div key={e.label} style={{ fontFamily: 'var(--mono)', fontSize: 11 }}>
+                    <div style={{ color: 'var(--slate2)', fontSize: 9, letterSpacing: '0.15em', marginBottom: 3 }}>{e.label}</div>
+                    <div style={{ color: e.col || 'var(--white)', fontWeight: 600 }}>{e.value}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </section>
   )
 }
+
+function AgentGroup({ title, badge, meta, children }) {
+  return (
+    <div style={{ border: '1px solid var(--wire)', background: 'var(--ink2)' }}>
+      <div style={{
+        padding: '10px 16px', borderBottom: '1px solid var(--wire)',
+        display: 'flex', alignItems: 'center', gap: 10,
+        background: 'var(--ink3)',
+      }}>
+        <div style={{
+          width: 8, height: 8, borderRadius: '50%',
+          background: meta.color, boxShadow: `0 0 8px ${meta.color}`,
+        }} />
+        <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: meta.color, letterSpacing: '0.15em' }}>{title}</span>
+        <span style={{
+          fontFamily: 'var(--mono)', fontSize: 9, color: meta.color,
+          background: meta.bg, border: `1px solid ${meta.border}`,
+          padding: '1px 8px', letterSpacing: '0.1em',
+        }}>{badge}</span>
+      </div>
+      <div style={{ padding: 16 }}>{children}</div>
+    </div>
+  )
+}
+
+function AgentCard({ agent, meta }) {
+  const s = agent.data?.sentiment || 'neutral'
+  return (
+    <div style={{
+      background: 'var(--ink)', border: `1px solid ${meta.border}`,
+      padding: '14px 16px',
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+        <div>
+          <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--slate2)', letterSpacing: '0.12em', marginBottom: 3 }}>
+            {agent.icon}
+          </div>
+          <div style={{ fontFamily: 'var(--display)', fontSize: 15, color: 'var(--white)', fontWeight: 700, letterSpacing: '0.05em' }}>
+            {agent.name}
+          </div>
+        </div>
+        <div style={{
+          fontFamily: 'var(--mono)', fontSize: 9,
+          color: SENTIMENT_COLOR[s] || 'var(--slate)',
+          background: `${SENTIMENT_COLOR[s]}18`,
+          border: `1px solid ${SENTIMENT_COLOR[s]}40`,
+          padding: '3px 8px', letterSpacing: '0.12em',
+          textTransform: 'uppercase',
+        }}>{s}</div>
+      </div>
+      <div style={{ fontFamily: 'var(--body)', fontSize: 12, color: 'var(--slate)', lineHeight: 1.55 }}>
+        {agent.data?.signal || agent.data?.finding || agent.data?.proposal || agent.data?.assessment || agent.data?.decision || '—'}
+      </div>
+      {agent.data?.confidence !== undefined && (
+        <div style={{ marginTop: 8 }}>
+          <ScoreBar label="CONFIDENCE" value={agent.data.confidence} color={meta.color} />
+        </div>
+      )}
+      {agent.data?.score !== undefined && (
+        <div style={{ marginTop: 8 }}>
+          <ScoreBar label="SAFETY SCORE" value={agent.data.score} color={meta.color} />
+        </div>
+      )}
+      {agent.data?.depthScore !== undefined && (
+        <div style={{ marginTop: 8 }}>
+          <ScoreBar label="DEPTH SCORE" value={agent.data.depthScore} color={meta.color} />
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ScoreBar({ label, value, color }) {
+  return (
+    <div style={{ marginBottom: 4 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--slate2)', letterSpacing: '0.12em', marginBottom: 3 }}>
+        <span>{label}</span><span style={{ color }}>{value}%</span>
+      </div>
+      <div style={{ height: 3, background: 'var(--wire)', borderRadius: 2, overflow: 'hidden' }}>
+        <div style={{ height: '100%', width: `${value}%`, background: color, borderRadius: 2, transition: 'width 1s ease' }} />
+      </div>
+    </div>
+  )
+}
+
+function RiskGauge({ value, label }) {
+  const color = value < 40 ? 'var(--green)' : value < 65 ? 'var(--amber)' : 'var(--red)'
+  const r = 28, circumference = 2 * Math.PI * r
+  const offset = circumference * (1 - value / 100)
+  return (
+    <div style={{ textAlign: 'center' }}>
+      <svg width="80" height="80" viewBox="0 0 80 80">
+        <circle cx="40" cy="40" r={r} fill="none" stroke="var(--wire)" strokeWidth="5" />
+        <circle cx="40" cy="40" r={r} fill="none" stroke={color} strokeWidth="5"
+          strokeDasharray={circumference} strokeDashoffset={offset}
+          strokeLinecap="round" transform="rotate(-90 40 40)"
+          style={{ transition: 'stroke-dashoffset 1s ease' }}
+        />
+        <text x="40" y="44" textAnchor="middle" fontFamily="var(--display)" fontSize="16" fill={color} fontWeight="700">{value}</text>
+      </svg>
+      <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--slate2)', letterSpacing: '0.15em' }}>{label}</div>
+    </div>
+  )
+                }
+                                          
